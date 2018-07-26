@@ -18,22 +18,16 @@
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/tokio-tls/0.1")]
 
-#[cfg_attr(feature = "tokio-proto", macro_use)]
 extern crate futures;
 extern crate native_tls;
-#[macro_use]
-extern crate tokio_core;
-extern crate tokio_io;
+extern crate tokio;
 
 use std::io::{self, Read, Write};
 
 use futures::{Poll, Future, Async};
 use native_tls::{HandshakeError, Error, TlsConnector, TlsAcceptor};
 #[allow(deprecated)]
-use tokio_core::io::Io;
-use tokio_io::{AsyncRead, AsyncWrite};
-
-pub mod proto;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 /// A wrapper around an underlying raw stream which implements the TLS or SSL
 /// protocol.
@@ -165,16 +159,18 @@ impl<S: Read + Write> Write for TlsStream<S> {
     }
 }
 
-#[allow(deprecated)]
-impl<S: Io> Io for TlsStream<S> {
-}
-
 impl<S: AsyncRead + AsyncWrite> AsyncRead for TlsStream<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite> AsyncWrite for TlsStream<S> {
     fn shutdown(&mut self) -> Poll<(), io::Error> {
-        try_nb!(self.inner.shutdown());
+        match self.inner.shutdown() {
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
+                return Ok(Async::NotReady);
+            },
+            Err(e) => return Err(e.into()),
+            _ => {},
+        };
         self.inner.get_mut().shutdown()
     }
 }
