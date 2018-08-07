@@ -71,15 +71,8 @@ pub trait TlsConnectorExt: sealed::Sealed {
     /// example, a TCP connection to a remote server. That stream is then
     /// provided here to perform the client half of a connection to a
     /// TLS-powered server.
-    ///
-    /// # Compatibility notes
-    ///
-    /// Note that this method currently requires `S: Read + Write` but it's
-    /// highly recommended to ensure that the object implements the `AsyncRead`
-    /// and `AsyncWrite` traits as well, otherwise this function will not work
-    /// properly.
     fn connect_async<S>(&self, domain: &str, stream: S) -> ConnectAsync<S>
-        where S: Read + Write; // TODO: change to AsyncRead + AsyncWrite
+        where S: AsyncRead + AsyncWrite;
 
 }
 
@@ -95,15 +88,8 @@ pub trait TlsAcceptorExt: sealed::Sealed {
     /// This is typically used after a new socket has been accepted from a
     /// `TcpListener`. That socket is then passed to this function to perform
     /// the server half of accepting a client connection.
-    ///
-    /// # Compatibility notes
-    ///
-    /// Note that this method currently requires `S: Read + Write` but it's
-    /// highly recommended to ensure that the object implements the `AsyncRead`
-    /// and `AsyncWrite` traits as well, otherwise this function will not work
-    /// properly.
     fn accept_async<S>(&self, stream: S) -> AcceptAsync<S>
-        where S: Read + Write; // TODO: change to AsyncRead + AsyncWrite
+        where S: AsyncRead + AsyncWrite; // TODO: change to AsyncRead + AsyncWrite
 }
 
 mod sealed {
@@ -124,13 +110,13 @@ impl<S> TlsStream<S> {
     }
 }
 
-impl<S: Read + Write> Read for TlsStream<S> {
+impl<S: AsyncRead + AsyncWrite> Read for TlsStream<S> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.inner.read(buf)
     }
 }
 
-impl<S: Read + Write> Write for TlsStream<S> {
+impl<S: AsyncRead + AsyncWrite> Write for TlsStream<S> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -158,7 +144,7 @@ impl<S: AsyncRead + AsyncWrite> AsyncWrite for TlsStream<S> {
 
 impl TlsConnectorExt for TlsConnector {
     fn connect_async<S>(&self, domain: &str, stream: S) -> ConnectAsync<S>
-        where S: Read + Write,
+        where S: AsyncRead + AsyncWrite,
     {
         ConnectAsync {
             inner: MidHandshake {
@@ -172,7 +158,7 @@ impl sealed::Sealed for TlsConnector {}
 
 impl TlsAcceptorExt for TlsAcceptor {
     fn accept_async<S>(&self, stream: S) -> AcceptAsync<S>
-        where S: Read + Write,
+        where S: AsyncRead + AsyncWrite,
     {
         AcceptAsync {
             inner: MidHandshake {
@@ -185,7 +171,7 @@ impl TlsAcceptorExt for TlsAcceptor {
 impl sealed::Sealed for TlsAcceptor {}
 
 // TODO: change this to AsyncRead/AsyncWrite on next major version
-impl<S: Read + Write> Future for ConnectAsync<S> {
+impl<S: AsyncRead + AsyncWrite> Future for ConnectAsync<S> {
     type Item = TlsStream<S>;
     type Error = Error;
 
@@ -195,7 +181,7 @@ impl<S: Read + Write> Future for ConnectAsync<S> {
 }
 
 // TODO: change this to AsyncRead/AsyncWrite on next major version
-impl<S: Read + Write> Future for AcceptAsync<S> {
+impl<S: AsyncRead + AsyncWrite> Future for AcceptAsync<S> {
     type Item = TlsStream<S>;
     type Error = Error;
 
@@ -205,7 +191,7 @@ impl<S: Read + Write> Future for AcceptAsync<S> {
 }
 
 // TODO: change this to AsyncRead/AsyncWrite on next major version
-impl<S: Read + Write> Future for MidHandshake<S> {
+impl<S: AsyncRead + AsyncWrite> Future for MidHandshake<S> {
     type Item = TlsStream<S>;
     type Error = Error;
 
